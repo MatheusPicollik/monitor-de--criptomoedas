@@ -1,4 +1,7 @@
 import customtkinter as ctk
+import matplotlib.pyplot as plt
+import pandas as pd
+import os
 from tkinter import messagebox
 from monitor import iniciar_monitoramento
 from grafico import exibir_graficos
@@ -84,6 +87,36 @@ def obter_logo_url(moeda):
     except:
         return None
 
+def gerar_sparkline(coin, largura=80, altura=30):
+    caminho = f"historico/{coin}.csv"
+    if not os.path.exists(caminho):
+        return None
+    try:
+        df = pd.read_csv(caminho)
+        if "preco" not in df.columns:
+            return None
+        #pegar ultimos 30 pontos
+        valores = df["preco"].tail(30).values
+        if len(valores) < 2:
+            return None
+
+        fig, ax = plt.subplots(figsize=(largura/100, altura/100), dpi=100)
+        ax.plot(valores, color="#00BFFF", linewidth=1.5)
+        ax.axis("off")  #sem eixos
+        fig.tight_layout(pad=0)
+
+        #salvar na memoria
+        buf = BytesIO()
+        plt.savefig(buf, format="png", bbox_inches='tight', pad_inches=0)
+        plt.close(fig)
+        buf.seek(0)
+
+        pil_img = Image.open(buf)
+        return ImageTk.PhotoImage(pil_img)
+    except Exception as e:
+        print("Erro sparkline:", e)
+        return None
+
 def atualizar_tabela():
     while True:
         if not config["coins"] or not config["currencies"]:
@@ -132,8 +165,11 @@ def atualizar_tabela():
                     lbl = ctk.CTkLabel(linha, text=texto, font=ctk.CTkFont(size=12))
                     lbl.pack(side="left")
                     labels_tabela[key] = lbl
-                else:
-                    labels_tabela[key].configure(text=texto, text_color=cor)
+                spark_img = gerar_sparkline(coin)
+                if spark_img:
+                    spark_label = ctk.CTkLabel(linha, image=spark_img, text="")
+                    spark_label.image = spark_img
+                    spark_label.pack(side="right", padx=5)
 
         time.sleep(30)
 
